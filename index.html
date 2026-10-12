@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>5×5数字方块滑动游戏</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #111827;
+    color: #f9fafb;
+    touch-action: none;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  #scoreBoard {
+    font-size: 22px;
+    margin-bottom: 12px;
+    color: #fbbf24;
+    font-weight: bold;
+  }
+
+  .container-wrap{
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+  }
+
+  .side-panel{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .side-btn {
+    padding: 9px 12px;
+    font-size:14px;
+    border-radius:6px;
+    border:none;
+    font-weight:bold;
+    cursor:pointer;
+  }
+  #resetBtn{background:#64748b;color:#fff;}
+  #autoPlayBtn{background:#10b981;color:#fff;}
+
+  .btn-group {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+    max-width: 320px;
+  }
+
+  .skill-btn {
+    padding: 7px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+  }
+
+  #hammerBtn { background: #a8a29e; color: #000; }
+  #teleportBtn { background: #0ea5e9; color: #fff; }
+  #axeBtn { background: #84cc16; color: #000; }
+  #balanceBtn { background: #a5b4fc; color: #000; }
+  #stoneBtn { background: #6b7280; color: #fff; }
+  #bombBtn { background: #dc2626; color: #fff; }
+  #rainbowBtn { background: #ec4899; color: #fff; }
+  #machineBtn { background: #34d399; color: #000; }
+  #zoomBtn { background: #f59e0b; color:#000; }
+  #magnetBtn { background: #8b5cf6; color:#fff; }
+
+  .skill-btn:disabled, .side-btn:disabled {
+    background: #444 !important;
+    color: #999 !important;
+    cursor: not-allowed;
+  }
+
+  #grid {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    background: #1f2937;
+    border-radius: 10px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr);
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .cell {
+    background: #374151;
+    border-radius: 6px;
+  }
+
+  .block {
+    position: absolute;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: white;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+    transition: left 0.3s ease, top 0.3s ease, transform 0.3s ease, background-color 0.15s ease;
+    will-change: left, top, transform;
+    cursor: pointer;
+  }
+
+  .block.selected {
+    box-shadow: 0 0 0 3px #ffffff;
+  }
+
+  .block.tele-rising {
+    transform: scale(1.15);
+  }
+
+  .block.stone-block {
+    background-color: #6b7280 !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%239ca3af'%3E%3Cpath d='M4,16 L8,10 L12,14 L18,6 L20,8 L14,16 L8,18 Z'/%3E%3C/svg%3E");
+    background-size: 70%;
+    background-repeat: no-repeat;
+    background-position: center;
+    color: transparent;
+  }
+
+  .block.newborn {
+    animation: spawn 120ms ease-out forwards;
+  }
+
+  .block.merging {
+    animation: pop 120ms ease-out;
+    z-index: 10;
+  }
+
+  @keyframes spawn {
+    0% { transform: scale(0.03); opacity: 0; }
+    70% { opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  .fragment {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .fragment.white{
+    background:#ffffff;
+  }
+
+  .magnet-ring{
+    position:absolute;
+    border:2px solid #fff;
+    border-radius:50%;
+    pointer-events:none;
+    z-index:15;
+    animation: magnetRingAnim 600ms ease-out forwards;
+  }
+  @keyframes magnetRingAnim{
+    0%{transform:scale(0.2);opacity:1;}
+    100%{transform:scale(2.2);opacity:0;}
+  }
+
+  .bomb-entity {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: #dc2626;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    z-index: 15;
+    animation: bombInflate 400ms ease-out forwards;
+  }
+
+  @keyframes bombInflate {
+    0% { transform: scale(0.2); }
+    100% { transform: scale(1.4); }
+  }
+
+  .shake-screen {
+    animation: screenShake 250ms;
+  }
+
+  @keyframes screenShake {
+    0% { transform: translate(0, 0); }
+    20% { transform: translate(-4px, 3px); }
+    40% { transform: translate(4px, -3px); }
+    60% { transform: translate(-3px, -4px); }
+    80% { transform: translate(3px, 4px); }
+    100% { transform: translate(0, 0); }
+  }
+</style>
+</head>
+<body>
+
+<h1>5×5 数字方块滑动游戏</h1>
+<div id="scoreBoard">分数：0</div>
+
+<div class="container-wrap">
+  <div>
+    <div class="btn-group">
+      <button id="hammerBtn" class="skill-btn">🔨锤子</button>
+      <button id="teleportBtn" class="skill-btn">🌀传送</button>
+      <button id="axeBtn" class="skill-btn">🪓斧子</button>
+      <button id="balanceBtn" class="skill-btn">⚖️天平</button>
+      <button id="stoneBtn" class="skill-btn">🪨石头</button>
+      <button id="bombBtn" class="skill-btn">💣炸弹</button>
+      <button id="rainbowBtn" class="skill-btn">🌈彩虹</button>
+      <button id="machineBtn" class="skill-btn">🤖机器</button>
+      <button id="zoomBtn" class="skill-btn">🔎放大</button>
+      <button id="magnetBtn" class="skill-btn">🌐磁场</button>
+    </div>
+    <div id="grid"></div>
+  </div>
+  <div class="side-panel">
+    <button id="resetBtn" class="side-btn">🔧重置</button>
+    <button id="autoPlayBtn" class="side-btn">🔗自动玩：关</button>
+  </div>
+</div>
+
+<script>
+  const SIZE = 5;
+  const MOVE_SPEED = 100;
+  const gridEl = document.getElementById("grid");
+  const scoreEl = document.getElementById("scoreBoard");
+  const hammerBtn = document.getElementById("hammerBtn");
+  const axeBtn = document.getElementById("axeBtn");
+  const balanceBtn = document.getElementById("balanceBtn");
+  const stoneBtn = document.getElementById("stoneBtn");
+  const bombBtn = document.getElementById("bombBtn");
+  const rainbowBtn = document.getElementById("rainbowBtn");
+  const teleportBtn = document.getElementById("teleportBtn");
+  const machineBtn = document.getElementById("machineBtn");
+  const zoomBtn = document.getElementById("zoomBtn");
+  const magnetBtn = document.getElementById("magnetBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const autoPlayBtn = document.getElementById("autoPlayBtn");
+
+  let score = 0;
+  let blocks = [];
+  let nextId = 3;
+  let autoPlayOn = false;
+  let autoTimer = null;
+
+  let hammerActive = false;
+  let axeActive = false;
+  let balanceActive = false;
+  let balanceSelectList = [];
+  let stoneActive = false;
+  let bombActive = false;
+  let rainbowActive = false;
+  let teleportActive = false;
+  let teleportSelectedBlock = null;
+  let zoomActive = false;
+  let magnetActive = false;
+
+  const baseColors = [
+    "#ef4444", "#f97316", "#facc15", "#22c55e",
+    "#38bdf8", "#1d4ed8", "#8b5cf6"
+  ];
+
+  function hexToHsl(hex) {
+    let r = parseInt(hex.slice(1, 3), 16) / 255;
+    let g = parseInt(hex.slice(3, 5), 16) / 255;
+    let b = parseInt(hex.slice(5, 7), 16) / 255;
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      let d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+        case g: h = ((b - r) / d + 2) / 6; break;
+        case b: h = ((r - g) / d + 4) / 6; break;
+      }
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
+
+  function getColorByValue(value) {
+    const cycleLen = baseColors.length;
+    const idx = (value - 1) % cycleLen;
+    const round = Math.floor((value - 1) / cycleLen);
+    const hsl = hexToHsl(baseColors[idx]);
+    const reduce = round * 8;
+    let lightness = Math.max(10, hsl.l - reduce);
+    return `hsl(${hsl.h}, ${hsl.s}%, ${lightness}%)`;
+  }
+
+  function updateScore() {
+    scoreEl.textContent = `分数：${score}`;
+  }
+
+  function createGrid() {
+    gridEl.innerHTML = "";
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.r = r;
+        cell.dataset.c = c;
+        cell.onclick = () => handleCellClick(r, c);
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function getBlockSize() {
+    return (gridEl.clientWidth - 16 - 24) / SIZE;
+  }
+
+  function getBlockPosition(r, c) {
+    const cellSize = getBlockSize();
+    const left = 8 + c * (cellSize + 6);
+    const top = 8 + r * (cellSize + 6);
+    return { left, top };
+  }
+
+  function renderBlocks() {
+    const cellSize = getBlockSize();
+    blocks.forEach(block => {
+      let el = document.getElementById("block-" + block.id);
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "block";
+        el.id = "block-" + block.id;
+        el.onclick = () => handleBlockClick(block);
+        gridEl.appendChild(el);
+      }
+
+      el.style.width = cellSize + "px";
+      el.style.height = cellSize + "px";
+      el.style.fontSize = Math.max(14, cellSize / 3) + "px";
+
+      if (block.isStone) {
+        el.classList.add("stone-block");
+        el.textContent = "";
+      } else {
+        el.classList.remove("stone-block");
+        el.textContent = block.value;
+        el.style.backgroundColor = getColorByValue(block.value);
+      }
+
+      const { left, top } = getBlockPosition(block.r, block.c);
+      el.style.left = left + "px";
+      el.style.top = top + "px";
+    });
+  }
+
+  function getEmptyCells() {
+    const occupied = new Set();
+    blocks.forEach(b => occupied.add(`${b.r},${b.c}`));
+    const empty = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (!occupied.has(`${r},${c}`)) {
+          empty.push({ r, c });
+        }
+      }
+    }
+    return empty;
+  }
+
+  function spawnOne() {
+    const empty = getEmptyCells();
+    if (empty.length === 0) return;
+    const pick = empty[Math.floor(Math.random() * empty.length)];
+    const newBlock = { id: nextId++, r: pick.r, c: pick.c, value: 1, isStone: false };
+    blocks.push(newBlock);
+
+    setTimeout(() => {
+      renderBlocks();
+      const el = document.getElementById("block-" + newBlock.id);
+      if (el) {
+        el.classList.add("newborn");
+        setTimeout(() => el.classList.remove("newborn"), 140);
+      }
+    }, 0);
+  }
+
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  function playPopSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(250, audioCtx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  }
+  function playExplodeSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.15);
+  }
+  function playDingSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.25);
+  }
+  function playThudSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  }
+  function playBombExplodeSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  }
+
+  function createFragment(block, customColor = null) {
+    const cellSize = getBlockSize();
+    const { left, top } = getBlockPosition(block.r, block.c);
+    const color = customColor || getColorByValue(block.value);
+    const fragCount = 6;
+    for (let i = 0; i < fragCount; i++) {
+      const frg = document.createElement("div");
+      frg.className = "fragment";
+      frg.style.backgroundColor = color;
+      frg.style.left = (left + cellSize / 2 - 5) + "px";
+      frg.style.top = (top + cellSize / 2 - 5) + "px";
+      gridEl.appendChild(frg);
+      const angle = (Math.PI * 2 * i) / fragCount + Math.random() * 0.6;
+      const distance = 260 + Math.random() * 120;
+      const vx = Math.cos(angle) * distance;
+      const vy = Math.sin(angle) * distance + 180;
+      frg.animate([
+        { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
+        { transform: `translate(${vx}px, ${vy}px) rotate(${Math.random() * 720}deg)`, opacity: 1 }
+      ], { duration: 700, easing: "cubic-bezier(0.15, 0.6, 0.3, 1)" });
+      setTimeout(() => frg.remove(), 720);
+    }
+  }
+
+  function createWhiteFragment(block) {
+    const cellSize = getBlockSize();
+    const { left, top } = getBlockPosition(block.r, block.c);
+    const fragCount = 7;
+    for (let i = 0; i < fragCount; i++) {
+      const frg = document.createElement("div");
+      frg.className = "fragment white";
+      frg.style.left = (left + cellSize / 2 - 5) + "px";
+      frg.style.top = (top + cellSize / 2 - 5) + "px";
+      gridEl.appendChild(frg);
+      const angle = (Math.PI * 2 * i) / fragCount;
+      const dist = 30 + Math.random()*40;
+      const vx = Math.cos(angle)*dist;
+      const vy = Math.sin(angle)*dist;
+      frg.animate([
+        { transform:"translate(0,0)",opacity:1 },
+        { transform:`translate(${vx}px,${vy}px)`,opacity:0 }
+      ],{duration:550,easing:"ease-out"});
+      setTimeout(()=>frg.remove(),600);
+    }
+  }
+
+  function createMagnetRing(r,c){
+    const cellSize = getBlockSize();
+    const { left, top } = getBlockPosition(r,c);
+    const ring = document.createElement("div");
+    ring.className="magnet-ring";
+    ring.style.width = cellSize+"px";
+    ring.style.height = cellSize+"px";
+    ring.style.left = left+"px";
+    ring.style.top = top+"px";
+    gridEl.appendChild(ring);
+    setTimeout(()=>ring.remove(),600);
+  }
+
+  function clearTeleportSelection() {
+    if (teleportSelectedBlock) {
+      const el = document.getElementById("block-" + teleportSelectedBlock.id);
+      if (el) el.classList.remove("selected");
+    }
+    teleportSelectedBlock = null;
+  }
+
+  function handleCellClick(r, c) {
+    if (teleportActive && teleportSelectedBlock) {
+      const targetBlock = blocks.find(b => b.r === r && b.c === c);
+      if (!targetBlock) {
+        const selBlock = teleportSelectedBlock;
+        const selEl = document.getElementById("block-" + selBlock.id);
+        selEl.classList.remove("selected");
+        selEl.classList.add("tele-rising");
+        setTimeout(() => {
+          selBlock.r = r;
+          selBlock.c = c;
+          renderBlocks();
+          createFragment(selBlock, "#9ca3af");
+          setTimeout(() => selEl.classList.remove("tele-rising"), 300);
+          teleportActive = false;
+          teleportSelectedBlock = null;
+          teleportBtn.disabled = true;
+          setTimeout(() => teleportBtn.disabled = false, 30000);
+        }, 300);
+      }
+      return;
+    }
+    if (!stoneActive) return;
+    const exist = blocks.find(b => b.r === r && b.c === c);
+    if (exist) return;
+    stoneActive = false;
+    stoneBtn.disabled = true;
+    playThudSound();
+    const tempStone = { r, c };
+    createFragment(tempStone, "#9ca3af");
+    const newStoneBlock = { id: nextId++, r, c, value: 0, isStone: true };
+    blocks.push(newStoneBlock);
+    renderBlocks();
+    setTimeout(() => stoneBtn.disabled = false, 30000);
+  }
+
+  function handleBlockClick(block) {
+    if (teleportActive) {
+      if (!teleportSelectedBlock) {
+        teleportSelectedBlock = block;
+        const el = document.getElementById("block-" + block.id);
+        el.classList.add("selected");
+        return;
+      } else {
+        const blockA = teleportSelectedBlock;
+        const blockB = block;
+        const elA = document.getElementById("block-" + blockA.id);
+        const elB = document.getElementById("block-" + blockB.id);
+        elA.classList.remove("selected");
+        elA.classList.add("tele-rising");
+        elB.classList.add("tele-rising");
+        setTimeout(() => {
+          const tr = blockA.r;
+          const tc = blockA.c;
+          blockA.r = blockB.r;
+          blockA.c = blockB.c;
+          blockB.r = tr;
+          blockB.c = tc;
+          renderBlocks();
+          createFragment(blockA, "#9ca3af");
+          createFragment(blockB, "#9ca3af");
+          setTimeout(() => {
+            elA.classList.remove("tele-rising");
+            elB.classList.remove("tele-rising");
+          }, 300);
+          teleportActive = false;
+          teleportSelectedBlock = null;
+          teleportBtn.disabled = true;
+          setTimeout(() => teleportBtn.disabled = false, 30000);
+        }, 300);
+        return;
+      }
+    }
+
+    if(zoomActive){
+      zoomActive = false;
+      zoomBtn.disabled = true;
+      if(block.isStone){
+        playExplodeSound();
+        setTimeout(()=>zoomBtn.disabled=false,60000);
+        return;
+      }
+      if(block.value >=30){
+        playExplodeSound();
+        setTimeout(()=>zoomBtn.disabled=false,60000);
+        return;
+      }
+      block.value *=2;
+      playDingSound();
+      renderBlocks();
+      setTimeout(()=>zoomBtn.disabled=false,60000);
+      return;
+    }
+
+    if(magnetActive){
+      magnetActive = false;
+      magnetBtn.disabled = true;
+      const centerR = block.r;
+      const centerC = block.c;
+      createMagnetRing(centerR,centerC);
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      let sum = block.value;
+      const toAbsorb = [];
+      dirs.forEach(([dr,dc])=>{
+        const nr = centerR+dr;
+        const nc = centerC+dc;
+        if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE){
+          const target = blocks.find(b=>b.r===nr && b.c===nc && !b.isStone);
+          if(target){
+            toAbsorb.push(target);
+          }
+        }
+      });
+      toAbsorb.forEach(b=>{
+        const el = document.getElementById("block-"+b.id);
+        if(el){
+          b.r = centerR;
+          b.c = centerC;
+          el.style.transition = "left 0.35s ease, top 0.35s ease";
+          const pos = getBlockPosition(centerR,centerC);
+          el.style.left = pos.left+"px";
+          el.style.top = pos.top+"px";
+        }
+      });
+      setTimeout(()=>{
+        toAbsorb.forEach(b=>{
+          sum += b.value;
+          createWhiteFragment(b);
+          const el = document.getElementById("block-" + b.id);
+          if(el) el.remove();
+        });
+        block.value = sum;
+        blocks = blocks.filter(b=>!toAbsorb.includes(b));
+        playDingSound();
+        renderBlocks();
+        setTimeout(()=>magnetBtn.disabled=false,45000);
+      },350);
+      return;
+    }
+
+    if (bombActive) {
+      bombActive = false;
+      bombBtn.disabled = true;
+      const cellSize = getBlockSize();
+      const { left, top } = getBlockPosition(block.r, block.c);
+      const bombEl = document.createElement("div");
+      bombEl.className = "bomb-entity";
+      bombEl.textContent = "💣";
+      bombEl.style.left = (left + cellSize / 2 - 15) + "px";
+      bombEl.style.top = (top + cellSize / 2 - 15) + "px";
+      gridEl.appendChild(bombEl);
+      setTimeout(() => {
+        playBombExplodeSound();
+        gridEl.classList.add("shake-screen");
+        setTimeout(() => gridEl.classList.remove("shake-screen"), 250);
+        let sum = 0;
+        let targetBlocks = [];
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = block.r + dr;
+            const nc = block.c + dc;
+            if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) {
+              const found = blocks.find(b => b.r === nr && b.c === nc);
+              if (found && !found.isStone) {
+                sum += found.value;
+                targetBlocks.push(found);
+              }
+            }
+          }
+        }
+        const avg = Math.floor(sum / targetBlocks.length);
+        targetBlocks.forEach(b => b.value = avg);
+        bombEl.remove();
+        renderBlocks();
+        setTimeout(() => bombBtn.disabled = false, 30000);
+      }, 400);
+      return;
+    }
+
+    if (hammerActive) {
+      hammerActive = false;
+      hammerBtn.disabled = true;
+      if (!block.isStone) score += block.value * 10;
+      updateScore();
+      playExplodeSound();
+      createFragment(block, block.isStone ? "#6b7280" : null);
+      blocks = blocks.filter(b => b.id !== block.id);
+      const blockEl = document.getElementById("block-" + block.id);
+      if (blockEl) blockEl.remove();
+      renderBlocks();
+      setTimeout(() => hammerBtn.disabled = false, 15000);
+      return;
+    }
+
+    if (axeActive) {
+      if (block.isStone) {
+        axeActive = false;
+        axeBtn.disabled = true;
+        playExplodeSound();
+        block.isStone = false;
+        block.value = Math.floor(Math.random() * 5) + 1;
+        updateScore();
+        renderBlocks();
+        setTimeout(() => axeBtn.disabled = false, 30000);
+        return;
+      }
+      if (block.value % 2 !== 0) {
+        alert("无法减半");
+        return;
+      }
+      axeActive = false;
+      axeBtn.disabled = true;
+      score += block.value * 20;
+      playExplodeSound();
+      createFragment(block);
+      block.value = block.value / 2;
+      updateScore();
+      renderBlocks();
+      setTimeout(() => axeBtn.disabled = false, 30000);
+      return;
+    }
+
+    if (balanceActive) {
+      if (block.isStone) return;
+      const el = document.getElementById("block-" + block.id);
+      if (balanceSelectList.find(x => x.id === block.id)) return;
+      balanceSelectList.push(block);
+      el.classList.add("selected");
+      if (balanceSelectList.length >= 2) {
+        balanceActive = false;
+        balanceBtn.disabled = true;
+        const b1 = balanceSelectList[0];
+        const b2 = balanceSelectList[1];
+        const maxVal = Math.max(b1.value, b2.value);
+        b1.value = maxVal;
+        b2.value = maxVal;
+        playDingSound();
+        balanceSelectList.forEach(item => {
+          const e = document.getElementById("block-" + item.id);
+          if (e) e.classList.remove("selected");
+        });
+        balanceSelectList = [];
+        renderBlocks();
+        setTimeout(() => balanceBtn.disabled = false, 45000);
+      }
+      return;
+    }
+  }
+
+  hammerBtn.onclick = () => { initAudio(); hammerActive = true; };
+  axeBtn.onclick = () => { initAudio(); axeActive = true; };
+  balanceBtn.onclick = () => {
+    initAudio();
+    balanceActive = true;
+    balanceSelectList = [];
+    blocks.forEach(b => {
+      const el = document.getElementById("block-" + b.id);
+      if (el) el.classList.remove("selected");
+    });
+  };
+  stoneBtn.onclick = () => { initAudio(); stoneActive = true; };
+  bombBtn.onclick = () => { initAudio(); bombActive = true; };
+  rainbowBtn.onclick = () => { initAudio(); rainbowActive = true; rainbowBtn.disabled = true; };
+  teleportBtn.onclick = () => { initAudio(); teleportActive = true; clearTeleportSelection(); };
+  zoomBtn.onclick = ()=>{ initAudio(); zoomActive = true; };
+  magnetBtn.onclick = ()=>{ initAudio(); magnetActive = true; };
+
+  // 重置功能
+  resetBtn.onclick = ()=>{
+    hammerBtn.disabled=false;
+    teleportBtn.disabled=false;
+    axeBtn.disabled=false;
+    balanceBtn.disabled=false;
+    stoneBtn.disabled=false;
+    bombBtn.disabled=false;
+    rainbowBtn.disabled=false;
+    machineBtn.disabled=false;
+    zoomBtn.disabled=false;
+    magnetBtn.disabled=false;
+    score=0;
+    blocks = [
+      { id: 1, r: 0, c: 1, value: 1, isStone: false },
+      { id: 2, r: 2, c: 3, value: 1, isStone: false }
+    ];
+    nextId = 3;
+    updateScore();
+    renderBlocks();
+  }
+
+  // ====== 自动游玩【1秒一步 + 增强AI评估】======
+  autoPlayBtn.onclick = ()=>{
+    autoPlayOn = !autoPlayOn;
+    if(autoPlayOn){
+      autoPlayBtn.textContent = "🔗自动玩：开";
+      autoTimer = setInterval(()=>{
+        const dir = chooseBestMove(JSON.parse(JSON.stringify(blocks)));
+        if(dir) move(dir);
+      },1000); // 1000ms = 每秒1步
+    }else{
+      autoPlayBtn.textContent = "🔗自动玩：关";
+      clearInterval(autoTimer);
+    }
+  }
+
+  function simulateMove(state, dir) {
+    const sim = JSON.parse(JSON.stringify(state));
+    let moved = false;
+    if (dir === "up" || dir === "down") {
+      for (let c = 0; c < SIZE; c++) {
+        const column = sim.filter(b => b.c === c).sort((a, b) => dir === "up" ? a.r - b.r : b.r - a.r);
+        let writeIndex = dir === "up" ? 0 : SIZE - 1;
+        let step = dir === "up" ? 1 : -1;
+        let merged = false;
+        for (let i = 0; i < column.length; i++) {
+          const current = column[i];
+          const targetIndex = writeIndex;
+          if (current.r !== targetIndex) { current.r = targetIndex; moved = true; }
+          if (current.isStone) { writeIndex += step; merged = false; continue; }
+          if (i + 1 < column.length && !merged) {
+            const next = column[i + 1];
+            if (next.isStone) { writeIndex += step; merged = false; continue; }
+            if (next.value === current.value) {
+              next.value = current.value + 1;
+              next.r = targetIndex;
+              const idx = sim.findIndex(x => x.id === current.id);
+              if (idx > -1) sim.splice(idx, 1);
+              moved = true; merged = true; continue;
+            }
+          }
+          merged = false; writeIndex += step;
+        }
+      }
+    }
+    if (dir === "left" || dir === "right") {
+      for (let r = 0; r < SIZE; r++) {
+        const row = sim.filter(b => b.r === r).sort((a, b) => dir === "left" ? a.c - b.c : b.c - a.c);
+        let writeIndex = dir === "left" ? 0 : SIZE - 1;
+        let step = dir === "left" ? 1 : -1;
+        let merged = false;
+        for (let i = 0; i < row.length; i++) {
+          const current = row[i];
+          const targetIndex = writeIndex;
+          if (current.c !== targetIndex) { current.c = targetIndex; moved = true; }
+          if (current.isStone) { writeIndex += step; merged = false; continue; }
+          if (i + 1 < row.length && !merged) {
+            const next = row[i + 1];
+            if (next.isStone) { writeIndex += step; merged = false; continue; }
+            if (next.value === current.value) {
+              next.value = current.value + 1;
+              next.c = targetIndex;
+              const idx = sim.findIndex(x => x.id === current.id);
+              if (idx > -1) sim.splice(idx, 1);
+              moved = true; merged = true; continue;
+            }
+          }
+          merged = false; writeIndex += step;
+        }
+      }
+    }
+    return { state: sim, moved };
+  }
+
+  // 增强型评估函数
+  function evaluateState(state) {
+    let scoreSum = 0;
+    let emptyCount = 0;
+    const occupied = new Set();
+    state.forEach(b=>occupied.add(`${b.r},${b.c}`));
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        if(!occupied.has(`${r},${c}`)) emptyCount++;
+      }
+    }
+
+    // 权重：优先高分，保留空位，大数放角落，奖励相邻相同数字
+    state.forEach(b=>{
+      if(b.isStone) return;
+      scoreSum += b.value * b.value;
+      // 角落奖励
+      if((b.r===0||b.r===SIZE-1) && (b.c===0||b.c===SIZE-1)) scoreSum += b.value * 2;
+      // 相邻同值奖励
+      const neighbors = [[b.r-1,b.c],[b.r+1,b.c],[b.r,b.c-1],[b.r,b.c+1]];
+      neighbors.forEach(([nr,nc])=>{
+        const nb = state.find(x=>x.r===nr&&x.c===nc&&!x.isStone);
+        if(nb && nb.value === b.value) scoreSum += b.value;
+      })
+    })
+    scoreSum += emptyCount * 12;
+    return scoreSum;
+  }
+
+  function chooseBestMove(state) {
+    const dirs = ["up", "down", "left", "right"];
+    let bestDir = null;
+    let bestScore = -Infinity;
+    for (const dir of dirs) {
+      const result = simulateMove(state, dir);
+      if (result.moved) {
+        const score = evaluateState(result.state);
+        if (score > bestScore) {
+          bestScore = score;
+          bestDir = dir;
+        }
+      }
+    }
+    return bestDir;
+  }
+
+  machineBtn.onclick = () => {
+    initAudio();
+    machineBtn.disabled = true;
+    setTimeout(() => machineBtn.disabled = false, 60000);
+    let current = JSON.parse(JSON.stringify(blocks));
+    let moveCount = 0;
+    const maxMoves = 3;
+    function runStep() {
+      if (moveCount >= maxMoves) return;
+      const dir = chooseBestMove(current);
+      if (!dir) return;
+      moveCount++;
+      move(dir);
+      current = JSON.parse(JSON.stringify(blocks));
+      setTimeout(() => {
+        spawnOne();
+        renderBlocks();
+        setTimeout(runStep, MOVE_SPEED + 120);
+      }, MOVE_SPEED);
+    }
+    runStep();
+  };
+
+  function move(dir) {
+    let moved = false;
+    if (dir === "up" || dir === "down") {
+      for (let c = 0; c < SIZE; c++) {
+        const column = blocks.filter(b => b.c === c).sort((a, b) => dir === "up" ? a.r - b.r : b.r - a.r);
+        let writeIndex = dir === "up" ? 0 : SIZE - 1;
+        let step = dir === "up" ? 1 : -1;
+        let merged = false;
+        for (let i = 0; i < column.length; i++) {
+          const current = column[i];
+          const targetIndex = writeIndex;
+          if (current.r !== targetIndex) { current.r = targetIndex; moved = true; }
+          if (current.isStone) { writeIndex += step; merged = false; continue; }
+          if (i + 1 < column.length && !merged) {
+            const next = column[i + 1];
+            if (next.isStone) { writeIndex += step; merged = false; continue; }
+            if (rainbowActive || next.value === current.value) {
+              const mergeVal = rainbowActive ? (current.value + next.value) : (current.value + 1);
+              next.value = mergeVal;
+              next.r = targetIndex;
+              score += mergeVal * 10;
+              updateScore();
+              const el = document.getElementById("block-" + current.id);
+              if (el) { el.classList.add("merging"); setTimeout(() => el.remove(), 120); }
+              playPopSound();
+              blocks = blocks.filter(b => b.id !== current.id);
+              merged = true; moved = true;
+              continue;
+            }
+          }
+          merged = false; writeIndex += step;
+        }
+      }
+    }
+    if (dir === "left" || dir === "right") {
+      for (let r = 0; r < SIZE; r++) {
+        const row = blocks.filter(b => b.r === r).sort((a, b) => dir === "left" ? a.c - b.c : b.c - a.c);
+        let writeIndex = dir === "left" ? 0 : SIZE - 1;
+        let step = dir === "left" ? 1 : -1;
+        let merged = false;
+        for (let i = 0; i < row.length; i++) {
+          const current = row[i];
+          const targetIndex = writeIndex;
+          if (current.c !== targetIndex) { current.c = targetIndex; moved = true; }
+          if (current.isStone) { writeIndex += step; merged = false; continue; }
+          if (i + 1 < row.length && !merged) {
+            const next = row[i + 1];
+            if (next.isStone) { writeIndex += step; merged = false; continue; }
+            if (rainbowActive || next.value === current.value) {
+              const mergeVal = rainbowActive ? (current.value + next.value) : (current.value + 1);
+              next.value = mergeVal;
+              next.c = targetIndex;
+              score += mergeVal * 10;
+              updateScore();
+              const el = document.getElementById("block-" + current.id);
+              if (el) { el.classList.add("merging"); setTimeout(() => el.remove(), 120); }
+              playPopSound();
+              blocks = blocks.filter(b => b.id !== current.id);
+              merged = true; moved = true;
+              continue;
+            }
+          }
+          merged = false; writeIndex += step;
+        }
+      }
+    }
+    if (rainbowActive) { rainbowActive = false; setTimeout(() => rainbowBtn.disabled = false, 45000); }
+    if (moved) {
+      setTimeout(() => { spawnOne(); renderBlocks(); }, MOVE_SPEED);
+    }
+  }
+
+  let startX = 0, startY = 0;
+  function onStart(x, y) { startX = x; startY = y; }
+  function onEnd(x, y) {
+    const dx = x - startX;
+    const dy = y - startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (Math.max(absX, absY) < 30) return;
+    if (absX > absY) { move(dx > 0 ? "right" : "left"); }
+    else { move(dy > 0 ? "down" : "up"); }
+  }
+  document.addEventListener("touchstart", e => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  document.addEventListener("touchend", e => onEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+  document.addEventListener("mousedown", e => onStart(e.clientX, e.clientY));
+  document.addEventListener("mouseup", e => onEnd(e.clientX, e.clientY));
+  window.addEventListener("resize", renderBlocks);
+
+  createGrid();
+  resetBtn.click();
+</script>
+
+</body>
+</html>
